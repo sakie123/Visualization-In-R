@@ -1,0 +1,417 @@
+---
+title: "Project"
+author: "Sakie123"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    theme: journal
+    toc: yes
+    toc_float:
+      collapsed: true
+---
+
+```{r setup, include = FALSE}
+# Setup options for R Markdown
+knitr::opts_chunk$set(
+  echo       = FALSE,    # Do not print code
+  warning    = FALSE,    # Suppress warnings
+  message    = FALSE,    # Suppress messages
+  fig.align  = "center", # Center figures
+  fig.width  = 2.7,      # Good standard figure width for single-panel figures
+  fig.height = 2.4       # Good standard figure height for single-panel figures
+)
+library(ggrepel)
+library(scales)
+library(readxl)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(kableExtra)
+library(ggmosaic)
+# Set a theme for ggplot2
+theme_set(theme_grey(base_size = 10))
+
+# Set options
+options(
+  digits = 3, # limit the number of significant digits
+  width  = 63 # limit the width of code output
+)
+```
+
+
+
+# Introduction
+In today's labor market, the factors influencing salary variations have become increasingly complex. Traditional elements such as job title, experience level, and employment type remain critical, but newer trends—like remote work and globalization—are reshaping the landscape. Understanding how these factors interact is more important than ever.
+
+
+\newpage
+
+```{r set up}
+data <- read.csv("https://raw.githubusercontent.com/sakie123/Visualization-In-R/refs/heads/main/ds_salaries.csv")
+```
+
+
+
+```{r}
+# Formatting variables accordingly to table 1
+data <- data %>% 
+  mutate(experience_level = as.factor(experience_level),
+         employment_type = as.factor(employment_type),
+         job_title = as.factor(job_title),
+         employee_residence = as.factor(employee_residence),
+         remote_ratio = as.factor(remote_ratio),
+         company_location = as.factor(company_location),
+         company_size = as.factor(company_size)) 
+```
+
+```{r}
+# changing remote ratio
+data <- data %>%
+  mutate(remote_ratio = case_when(
+    remote_ratio == 0 ~ "On site",
+    remote_ratio == 50 ~ "Hybrid",
+    remote_ratio == 100 ~ "Remote"
+  ))
+
+# Format experience levels
+data <- data %>%
+  mutate(experience_level = case_when(
+    experience_level == "EN" ~ "Entry",
+    experience_level == "EX" ~ "Executive",
+    experience_level == "MI" ~ "Mid-level",
+    experience_level == "SE" ~ "Senior"
+  ))
+
+data <- data %>%
+  mutate(experience_level = factor(experience_level, levels = c("Entry", "Mid-level", "Senior", "Executive")))
+
+data <- data %>%
+  mutate(
+    company_size = factor(company_size, 
+                          levels = c("S", "M", "L"),  # Original levels
+                          labels = c("Small", "Medium", "Large"))  # New labels
+  )
+
+# For this piece of code I used AI; 
+country_names <- c(
+  "AE" = "United Arab Emirates", "AL" = "Albania", "AM" = "Armenia", "AR" = "Argentina", 
+  "AS" = "American Samoa", "AT" = "Austria", "AU" = "Australia", "BA" = "Bosnia and Herzegovina", 
+  "BE" = "Belgium", "BO" = "Bolivia", "BR" = "Brazil", "BS" = "Bahamas", "CA" = "Canada", 
+  "CF" = "Central African Republic", "CH" = "Switzerland", "CL" = "Chile", "CN" = "China", 
+  "CO" = "Colombia", "CR" = "Costa Rica", "CZ" = "Czech Republic", "DE" = "Germany", 
+  "DK" = "Denmark", "DZ" = "Algeria", "EE" = "Estonia", "EG" = "Egypt", "ES" = "Spain", 
+  "FI" = "Finland", "FR" = "France", "GB" = "United Kingdom", "GH" = "Ghana", "GR" = "Greece", 
+  "HK" = "Hong Kong", "HN" = "Honduras", "HR" = "Croatia", "HU" = "Hungary", "ID" = "Indonesia", 
+  "IE" = "Ireland", "IL" = "Israel", "IN" = "India", "IQ" = "Iraq", "IR" = "Iran", "IT" = "Italy", 
+  "JP" = "Japan", "KE" = "Kenya", "LT" = "Lithuania", "LU" = "Luxembourg", "LV" = "Latvia", 
+  "MA" = "Morocco", "MD" = "Moldova", "MK" = "North Macedonia", "MT" = "Malta", "MX" = "Mexico", 
+  "MY" = "Malaysia", "NG" = "Nigeria", "NL" = "Netherlands", "NZ" = "New Zealand", "PH" = "Philippines", 
+  "PK" = "Pakistan", "PL" = "Poland", "PR" = "Puerto Rico", "PT" = "Portugal", "RO" = "Romania", 
+  "RU" = "Russia", "SE" = "Sweden", "SG" = "Singapore", "SI" = "Slovenia", "SK" = "Slovakia", 
+  "TH" = "Thailand", "TR" = "Turkey", "UA" = "Ukraine", "US" = "United States", "VN" = "Vietnam"
+)
+
+data <- data %>%
+  mutate(company_location = recode(company_location, !!!country_names))
+```
+
+
+
+
+# Description of the Dataset
+The data set has 11 variables. The data set contains information originating from 72 countries
+around the world. Information is gathered on the type of employment (fulltime/partime), the corresponding
+experience level for the position, specific job title, the amount of time spend working remotely and
+corresponding yearly salary in US Dollars.
+
+The following table provides a description of the variables of the data set. 
+
+## Description of variables
+```{r table1,}
+Variable_Description <- data.frame(
+  Variable = c("work_year", "experience_level", "employment_type", "job_title", 
+               "salary", "salary_currency", "salaryinusd", "employee_residence", 
+               "remote_ratio", "company_location", "company_size"),
+  Description = c("The year the salary was paid",
+                  "The experience level in the job during the year",
+                  "The type of employment for the role",
+                  "The role worked in during the year",
+                  "The total gross salary amount paid",
+                  "The currency of the salary paid",
+                  "The salary in USD",
+                  "Employee's primary country of residence during the work year",
+                  "The overall amount of work done remotely",
+                  "The country of the employer's main office or contracting branch",
+                  "Company size"),
+  Units = c("Year", "Experience Level", "Employment Type", "Job Title", "Dollars", 
+            "Currency Code", "Dollars", "Country Code", "Remote Ratio", "Country", "Number of People")
+)
+Variable_Description %>% 
+  knitr::kable(
+    caption = "Variable Description",
+    booktabs = TRUE
+  ) %>%
+  kable_styling(latex_options = c("striped", "hold_position", "scale_down")) %>%
+  column_spec(1, width = "10em") %>% 
+  column_spec(2, width = "20em") %>%
+  row_spec(0, bold = TRUE)  
+```
+
+\newpage
+# Descriptive Analyses
+
+## Remote Rato and Experience Level
+
+First, we look into the distribution of the data set over the different variables.
+The advantage of the mosaic plot is that it gives a quick overview of the relative frequency of
+multiple categorical variables. Which allows us to directly infer that the sample 
+is slightly skewed. There are significantly more senior positions are in our data set. 
+I can conclude that more than half of the sample consists of senior positions. 
+Furthermore, I would expect that most entry positions would not allow workers to work from home. 
+Surprisingly, the opposite seems to be true, entry potions in our data set are most often remote compared to other experience levels, although I have to say the differences are not substantial. 
+
+```{r fig.height=5, fig.width=5, fig.cap= "Remote Ratio by Experience Level"}
+data %>% 
+  ggplot() +
+  geom_mosaic(aes(x = product(experience_level), fill = remote_ratio), color = NA) +
+  labs(x = "Experience Level", y= "Relative Frequency") +
+  guides(fill = guide_legend(title = "Remote Ratio")) +
+  theme_mosaic() +
+  theme(
+    legend.title = element_text(size = 10, face = "bold"),  
+    legend.text = element_text(size = 10),                 
+    legend.key.size = unit(1, "cm"),                  
+    axis.title = element_text(size = 10, face = "bold"),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank() 
+  )
+```
+\newpage
+To further examine the distribution of experience levels across different company sizes, I created a heatmap. 
+The heatmap reveals a notable concentration of senior positions within medium-sized companies, 
+indicating a significant presence of experienced professionals in these organizations.
+```{r fig.height=6, fig.width=6, fig.cap="Distribution of Experience Level Across Company Sizes"}
+heatmap_data <- data %>%
+  group_by(experience_level, company_size) %>%
+  summarise(count = n())
+
+# Create the heatmap with a cold-to-warm color scheme
+ggplot(heatmap_data, aes(x = company_size, y = experience_level, fill = count)) +
+  geom_tile(color = "white", size = 0.5) +  
+  scale_fill_gradient(low = "blue", high = "red", name = "Count") +  
+  geom_text(aes(label = count), color = "white", size = 3) +  
+  labs(x = "Company Size",
+       y = "Experience Level") +
+  theme_minimal() +
+  theme(
+    axis.title.x = element_text(size = 14, face = "bold"),
+    axis.title.y = element_text(size = 14, face = "bold"),
+    legend.title = element_text(size = 12, face = "bold"),
+    legend.text = element_text(size = 10),
+    panel.grid = element_blank()  
+  )
+```
+
+
+
+\newpage
+## Company Location
+The data set contains observations from 72 countries. To simplify the visualization, 
+I grouped the countries that represent less than 1% of the data into a single category.
+In line with previous finding we see that the sample is skewed. There are far more
+observations originating from the US than other countries. 
+```{r fig.height=8, fig.width=8, fig.cap= "Distribution of Company Locations"}
+# Calculate percentages for each company location
+data_summary <- data %>%
+  count(company_location) %>%
+  mutate(company_location = as.character(company_location)) %>% 
+  mutate(percentage = n / sum(n) * 100)
+
+data_summary <- data_summary %>%
+  group_by(company_location) %>%
+  summarise(n = sum(n), percentage = sum(percentage))
+
+# Group countries with less than 1% as "Other"
+data_summary <- data_summary %>%
+  mutate(company_location = ifelse(percentage < 1, "Other", company_location)) 
+
+data_summary <- data_summary %>%
+  group_by(company_location) %>%
+  summarise(n = sum(n), percentage = sum(percentage))
+
+# Create a horizontal bar chart with percentages
+ggplot(data_summary, aes(x = reorder(company_location, -percentage), y = percentage, fill = company_location)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = paste0(round(percentage, 1), "%")),
+            hjust = 0.5, vjust = -1, size = 3) + 
+  labs(x = "Country", 
+       y = "Percentage") +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05))) + 
+  theme_minimal() +
+  theme(
+    axis.title.x = element_text(size = 13),
+    axis.title.y = element_text(size = 13),  
+    axis.text.x = element_text(size = 10, angle = 45, hjust = 1),  ,
+    legend.position = "none"
+  )
+```
+\newpage
+# Salary Analyses
+
+Analyzing income distribution across experience levels reveals a clear trend: 
+as experience increases, so does compensation. 
+This pattern is evident across various statistical measures, including the median, first quartile, and third quartile, 
+all of which rise consistently with higher experience levels. This alignment underscores the positive correlation between experience and salary, highlighting the financial benefits associated with greater professional experience.
+```{r fig.height=6, fig.width=10, fig.cap= "Income Distribution by Experience Level"}
+ggplot(data, aes(x = experience_level, y = salary_in_usd)) +
+  geom_boxplot(fill = "skyblue", color = "black") +  
+  labs(x = "Experience Level",
+       y = "Yearly Income (in Thousands Dollars)") +
+  facet_wrap(~ experience_level, ncol = 1, scales = "free_y") +  #
+  scale_y_continuous(labels = scales::label_number(scale = 0.001, suffix = "K")) +  
+  coord_flip() +  
+  theme_minimal() +
+  theme(
+    axis.title = element_text(size = 14, face = "bold"),
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+    strip.text = element_blank()
+  )
+
+```
+
+
+
+\newpage
+
+When examining compensation for different positions, the figure below confirms that executive roles offer the highest pay, as expected. Interestingly, there is a notable difference between full-time positions and contract-based roles. Contracts, which are typically for a fixed period, tend to offer significantly higher wages than full-time employment.
+
+
+```{r}
+salary_by_experience_employment <- data %>%
+  mutate(employment_type = case_when(
+    employment_type == "CT" ~ "Contract",
+    employment_type == "FL" ~ "Freelance",
+    employment_type == "FT" ~ "Full-time",
+    employment_type == "PT" ~ "Part-time"
+  )) %>%
+  group_by(experience_level, employment_type) %>%
+  summarise(avg_salary = mean(salary_in_usd, na.rm = TRUE)) %>%
+  arrange(desc(avg_salary))
+
+```
+
+
+```{r fig.height=6, fig.width=6, fig.cap="Average Salary by Experience Level and Employment Type"}
+ggplot(salary_by_experience_employment, aes(x = experience_level, y = avg_salary / 1000, fill = employment_type)) +
+  geom_bar(stat = "identity", position = "dodge") + 
+  scale_y_continuous(labels = scales::label_number(scale = 1)) +  
+  scale_fill_viridis_d(option = "C", direction = -1) +  
+  labs(x = "Experience Level", 
+       y = "Average Salary (in thousands USD)", 
+       fill = "Employment Type") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+    axis.title.x = element_text(size = 12),
+    axis.title.y = element_text(size = 12),
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 8, face = "bold")
+  )
+```
+\newpage
+The box plot below shows the distribution of income for different size of businesses.
+On average, medium size business tend to pay more than other type of businesses. 
+
+
+```{r fig.height=4, fig.width=8, fig.cap="Distribution Yearly Income by Company Size"}
+ggplot(data, aes(x = company_size, y = salary_in_usd)) +
+  geom_boxplot(fill = "lightgreen", color = "black") +  
+  labs(x = "Company Size",
+       y = "Yearly Income (in thousands)") +
+  facet_wrap(~ company_size, ncol = 1, strip.position = "left", scales = "free_y") +   
+  scale_y_continuous(labels = label_number(scale = 0.001, suffix = "K")) + 
+  coord_flip() +  
+  theme_minimal() +
+  theme(
+    strip.placement = "outside",  
+    strip.text.y.left = element_text(angle = 90, face="bold", size = 14),
+    strip.background = element_rect(color = "black", fill = "white", size = 1),
+    axis.title.y = element_blank(),  
+    axis.text.y = element_blank(),  
+    axis.ticks.y = element_blank(),  
+    axis.title.x = element_text(size = 14, face = "bold")
+  )
+```
+\newpage
+Looking at salaries across countries, Israel stands out prominently. The salaries were directly converted using exchange rates, without adjusting for cost of living, making this finding even more striking.. 
+
+
+```{r fig.height=4, fig.width=5, fig.cap= "Top 5 Best-Paid Countries (Average Yearly Salary in Thousands of USD"}
+
+best_paid_countries <- data %>%
+  group_by(company_location) %>%
+  summarise(average_salary = mean(salary_in_usd, na.rm = TRUE)) %>%
+  arrange(desc(average_salary)) %>%
+  head(5)  
+
+
+best_paid_countries <- best_paid_countries %>%
+  mutate(company_location = recode(company_location, !!!country_names))
+
+
+ggplot(best_paid_countries, aes(x = reorder(company_location, average_salary/1000), y = average_salary/1000)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  labs(
+       x = "Country", 
+       y = "Average Salary (Thousands of USD)") +
+   scale_y_continuous(labels = scales::comma) + 
+  theme_classic()
+```
+\newpage
+The plot below highlights the five highest-paying job titles, showing average salaries and their breakdown by remote work status (on-site, hybrid, or fully remote). Principal Data Scientist, Data Analytics Lead, and Data Analytics Tech Lead stand out as the top-paying positions, reflecting their seniority and critical role in data projects. The plot also shows variations in salary based on remote work flexibility, indicating that working arrangements can influence compensation in these roles.
+
+
+
+```{r fig.height=6, fig.width=6, fig.cap="Best Five Paying Positions"}
+summary_df <- data %>%
+  group_by(job_title, remote_ratio) %>%
+  summarize(mean_salary = mean(salary_in_usd, na.rm = TRUE)) %>%
+  ungroup()
+
+
+top_10_jobs <- summary_df %>%
+  group_by(job_title) %>%
+  summarize(mean_salary = mean(mean_salary)) %>%
+  arrange(desc(mean_salary)) %>%
+  slice(1:5)  
+
+summary_df_top10 <- summary_df %>%
+  filter(job_title %in% top_10_jobs$job_title)
+
+ggplot(summary_df_top10, aes(x = reorder(job_title, -mean_salary), y = mean_salary, fill = remote_ratio)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Job Title", y = "Average Salary (USD)", fill = "Remote Ratio") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_y_continuous(labels = label_number(scale = 0.001, suffix = "K", accuracy = 1)) +
+  coord_flip()  
+```
+\newpage
+# Conclusion
+The analysis of data science salaries between 2020 and 2023 shows that experience level, employment type, company size, and geographic location significantly impact compensation. Senior and executive positions naturally command the highest salaries, while contract roles pay more than full-time positions. Medium-sized companies appear to offer the best salaries on average, possibly due to their balance of resources and flexibility. The United States dominates the dataset, but Israel emerges as the highest-paying country for data scientists. Job title also plays a key role, with top-paying roles such as Principal Data Scientist and Data Analytics Lead standing out. Overall, the findings suggest that traditional factors like experience and job title are still critical, but globalization and remote work are reshaping the compensation landscape.
+
+## Connect with Me
+
+<!-- Kaggle Profile -->
+<a href="https://www.kaggle.com/Kaasie1234" target="_blank" style="text-decoration: none;">
+  <img src="https://cdn.iconscout.com/icon/free/png-256/kaggle-3628733-3030170.png" alt="Kaggle Profile" width="50" style="border: none;"/>
+  <span style="color: #1f77b4; font-size: 18px; vertical-align: middle;">Kaggle Profile</span>
+</a>
+
+<!-- GitHub Profile -->
+<a href="https://github.com/https://github.com/sakie123" target="_blank" style="text-decoration: none; margin-left: 20px;">
+  <img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" alt="GitHub Profile" width="50" style="border: none;"/>
+  <span style="color: #1f77b4; font-size: 18px; vertical-align: middle;">GitHub Profile</span>
+</a>
+
+
